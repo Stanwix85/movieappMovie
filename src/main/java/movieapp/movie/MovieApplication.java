@@ -1,35 +1,32 @@
 package movieapp.movie;
 
 import io.github.cdimascio.dotenv.Dotenv;
-import movieapp.movie.client.TmdbClient;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import movieapp.movie.service.MovieService;
 
 @SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 public class MovieApplication {
 
     @Bean
-    CommandLineRunner run(TmdbClient tmdbClient) {
+    CommandLineRunner run(MovieService movieService) {
         return args -> {
-            System.out.println("--- TESTING TMDB CLIENT ---");
+            System.out.println("=== Testing MovieService Live Mapping ===");
 
-            // 1. Test search
-            var searchResult = tmdbClient.searchMovies("Alien");
-            searchResult.ifPresent(res ->
-                    System.out.println("Search Found: " + res.results().size() + " films. First: " + res.results().get(0).title())
-            );
-
-            // 2. Test movie details with credits (e.g. Star Wars ID = 11)
-            var movieResult = tmdbClient.fetchMoviesWithCredit(11L);
-            movieResult.ifPresent(movie -> {
-                System.out.println("Fetched Movie: " + movie.title());
-                System.out.println("Tagline: " + movie.tagline());
+            // Fetch Movie ID 11 (Star Wars) with credits and map to MovieResponseDto
+            movieService.getMovieByTmdbId(11L).ifPresent(dto -> {
+                System.out.println("Title: " + dto.getTitle());
+                System.out.println("Director: " + dto.getDirector());
+                System.out.println("Release Date: " + dto.getReleaseDate());
+                System.out.println("Genres (capped at 3): " + dto.getGenre());
+                System.out.println("Actors (capped at 6): " + dto.getActors());
+                System.out.println("Rating: " + dto.getRating());
             });
 
-            System.out.println("--- TEST COMPLETE ---");
+            System.out.println("=========================================");
         };
     }
 

@@ -16,8 +16,11 @@ public record TmdbMovieResponse(
          @JsonProperty("release_date") String releaseDate,
          Integer runTime,
         @JsonProperty("vote_average") Double voteAverage,
-        List<TmdbGenre> genres
+        List<TmdbGenre> genres,
+        TmdbCredits credits
         ) {
+
+
     public record TmdbGenre(Integer id, String name) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
