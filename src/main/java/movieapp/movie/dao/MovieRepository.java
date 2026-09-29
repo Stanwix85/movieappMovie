@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface MovieRespository {
+public interface MovieRepository {
 
     Movie save(Movie movie);
 
-    Optional<Movie> findByID(UUID id);
-    Optional<Movie> findByMovieId(String movieId);
+    Optional<Movie> findById(UUID id);
+    Optional <Movie> findByMovieId(String movieId);
 
     List<Movie> findAll();
 

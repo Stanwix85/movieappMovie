@@ -14,7 +14,7 @@ public record TmdbMovieResponse(
          String tagline,
          @JsonProperty("poster_path")String posterPath,
          @JsonProperty("release_date") String releaseDate,
-         Integer runTime,
+         @JsonProperty("runtime") Integer runtime,
         @JsonProperty("vote_average") Double voteAverage,
         List<TmdbGenre> genres,
         TmdbCredits credits

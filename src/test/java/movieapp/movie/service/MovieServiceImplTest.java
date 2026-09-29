@@ -1,70 +1,116 @@
 package movieapp.movie.service;
 
 import movieapp.movie.client.TmdbClient;
+import movieapp.movie.dao.MovieRepository;
 import movieapp.movie.dto.MovieResponseDto;
 import movieapp.movie.dto.TmdbMovieResponse;
+import movieapp.movie.entities.Movie;
 import movieapp.movie.mappers.MovieMapper;
-import movieapp.movie.service.MovieServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class MovieServiceImplTest {
+
+    @Mock
+    private MovieRepository movieRepository;
 
     @Mock
     private TmdbClient tmdbClient;
 
-    @Mock
+    @Spy
     private MovieMapper movieMapper;
 
+    @InjectMocks
     private MovieServiceImpl movieService;
 
     @BeforeEach
     void setUp() {
-        movieService = new MovieServiceImpl(tmdbClient, movieMapper);
+        MockitoAnnotations.openMocks(this); // Initializes @Mock, @Spy, and @InjectMocks
     }
 
     @Test
-    void shouldReturnMovieResponseDtoWhenMovieExists() {
-        // Given
+    @DisplayName("Cache Hit: When movie exists locally, return from DB and NEVER call TMDB")
+    void shouldReturnFromDatabaseOnCacheHit() {
         Long tmdbId = 11L;
-        TmdbMovieResponse mockTmdbResponse = mock(TmdbMovieResponse.class);
-        MovieResponseDto expectedDto = new MovieResponseDto();
-        expectedDto.setTitle("Star Wars");
+        String movieIdStr = "11";
 
-        when(tmdbClient.fetchMoviesWithCredit(tmdbId)).thenReturn(Optional.of(mockTmdbResponse));
-        when(movieMapper.toDto(mockTmdbResponse)).thenReturn(expectedDto);
+        Movie localMovie = new Movie();
+        localMovie.setId(UUID.randomUUID());
+        localMovie.setMovieId(movieIdStr);
+        localMovie.setTitle("Star Wars: A New Hope");
 
-        // When
+        when(movieRepository.findByMovieId(movieIdStr)).thenReturn(Optional.of(localMovie));
+
         Optional<MovieResponseDto> result = movieService.getMovieByTmdbId(tmdbId);
 
-        // Then
-        assertTrue(result.isPresent());
-        assertEquals("Star Wars", result.get().getTitle());
-        verify(tmdbClient, times(1)).fetchMoviesWithCredit(tmdbId);
-        verify(movieMapper, times(1)).toDto(mockTmdbResponse);
+        assertThat(result).isPresent();
+        assertThat(result.get().getTitle()).isEqualTo("Star Wars: A New Hope");
+
+        verify(movieRepository, times(1)).findByMovieId(movieIdStr);
+        verifyNoInteractions(tmdbClient);
+        verify(movieRepository, never()).save(any());
     }
 
     @Test
-    void shouldReturnEmptyOptionalWhenMovieNotFound() {
-        // Given
-        Long tmdbId = 999999L;
-        when(tmdbClient.fetchMoviesWithCredit(tmdbId)).thenReturn(Optional.empty());
+    @DisplayName("Cache Miss: When movie is NOT in DB, fetch from TMDB, save locally, and return DTO")
+    void shouldFetchFromTmdbAndSaveOnCacheMiss() {
+        Long tmdbId = 11L;
+        String movieIdStr = "11";
 
-        // When
+        when(movieRepository.findByMovieId(movieIdStr)).thenReturn(Optional.empty());
+
+        TmdbMovieResponse tmdbResponse = new TmdbMovieResponse(
+                11L, "1a23","Star Wars", "A long time ago...", "May the Force be with you", "/poster.jpg",
+                "1977-05-25", 121, 8.2,
+                List.of(), null
+        );
+        when(tmdbClient.fetchMoviesWithCredit(tmdbId)).thenReturn(Optional.of(tmdbResponse));
+
+        Movie savedMovie = new Movie();
+        savedMovie.setId(UUID.randomUUID());
+        savedMovie.setMovieId(movieIdStr);
+        savedMovie.setTitle("Star Wars");
+        when(movieRepository.save(any(Movie.class))).thenReturn(savedMovie);
+
         Optional<MovieResponseDto> result = movieService.getMovieByTmdbId(tmdbId);
 
-        // Then
-        assertTrue(result.isEmpty());
+        assertThat(result).isPresent();
+        assertThat(result.get().getTitle()).isEqualTo("Star Wars");
+
+        verify(movieRepository, times(1)).findByMovieId(movieIdStr);
         verify(tmdbClient, times(1)).fetchMoviesWithCredit(tmdbId);
-        verifyNoInteractions(movieMapper);
+        verify(movieRepository, times(1)).save(any(Movie.class));
+    }
+
+    @Test
+    @DisplayName("Delete Movie: Returns true when found and deleted, false when not found")
+    void shouldHandleDeleteMovie() {
+        UUID id = UUID.randomUUID();
+
+        when(movieRepository.findById(id)).thenReturn(Optional.of(new Movie()));
+        boolean deleted = movieService.deleteMovie(id);
+
+        assertThat(deleted).isTrue();
+        verify(movieRepository, times(1)).deleteById(id);
+
+        UUID unknownId = UUID.randomUUID();
+        when(movieRepository.findById(unknownId)).thenReturn(Optional.empty());
+        boolean notDeleted = movieService.deleteMovie(unknownId);
+
+        assertThat(notDeleted).isFalse();
+        verify(movieRepository, never()).deleteById(unknownId);
     }
 }

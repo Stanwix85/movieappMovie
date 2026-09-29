@@ -59,7 +59,7 @@ public class MovieMapper {
         dto.setMovieId(tmdb.id() != null ? String.valueOf(tmdb.id()) : null);
         dto.setTitle(tmdb.title());
         dto.setDirector(extractDirector(tmdb));
-        dto.setRunTime(tmdb.runTime());
+        dto.setRunTime(tmdb.runtime());
         dto.setRating(tmdb.voteAverage());
         dto.setGenre(extractedGenres(tmdb));
         dto.setTagline(tmdb.tagline());
